@@ -28,7 +28,12 @@ public class SparseVectorPoint extends DataPoint {
 	}
 	@Override
 	public String outputString() {
-		//TODO
-		return null;
+		String ret = "x:{";
+		for (int i = 0; i < pos.length-1; i++) {
+			ret += pos[i]+":"+val[i]+",";
+		}
+		ret += pos[pos.length-1]+":"+val[pos.length-1]+" }";
+		ret += " y:" + y;
+		return ret;
 	}
 }

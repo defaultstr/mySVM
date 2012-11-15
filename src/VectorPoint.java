@@ -15,8 +15,9 @@ public class VectorPoint extends DataPoint{
 	@Override
 	public String outputString() {
 		String ret = "x:[";
-		for (int i = 0; i < x.length; i++)
-			ret += x[i] +" ";
+		for (int i = 0; i < x.length-1; i++)
+			ret += x[i] +",";
+		ret += x[x.length-1] + "]";
 		ret += "] y:" + y;
 		return ret;
 	}

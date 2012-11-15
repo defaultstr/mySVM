@@ -22,16 +22,14 @@ public class Main {
 		/* support libSVM format*/
 
 		try {
-			LibSVMData lsd = new LibSVMData("heart_scale");
-			LibSVMData testSet = new LibSVMData("heart_scale.test");
-			Trainer t = new Trainer(4, 0.001, new RBFKernel(1), true, lsd);
+			LibSVMData lsd = new LibSVMData("gns.head");
+			LibSVMData testSet = new LibSVMData("gns.test", lsd.getTags());
+			Trainer t = new Trainer(16, 0.01, new LinearKernel(), false, lsd);
 			Classifier c = t.train();
 			System.out.println("acc: " + Tester.test(c, testSet));
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (DataPointTypeMismatchException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		

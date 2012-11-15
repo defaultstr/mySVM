@@ -12,7 +12,7 @@ public class Trainer {
 	private double epsilon;
 	private Kernel k;
 	private boolean isVerbose = false;
-	private InputData input = null;//TODO support multi-data source 
+	private InputData input = null;
 	private int inputSize;
 	private double[] alpha;
 	private double[] E;
@@ -65,7 +65,7 @@ public class Trainer {
 			L = Math.max(0, alpha2 + alpha1 -C);
 			H = Math.min(C, alpha2 + alpha1);
 		}
-		if (L == H)
+		if (equals(L,H))
 			return false;
 		double k11 = k.k(p1, p1);
 		double k12 = k.k(p1, p2);
@@ -126,6 +126,10 @@ public class Trainer {
 				  +y2*(a2 - alpha2)*k.k(p2, input.get(i)) + bError;
 		}
 		alpha[i1] = a1;
+		if (alpha[i1] < 0)
+			alpha[i1] = 0;
+		if (alpha[i1] > C)
+			alpha[i1] = C;
 		alpha[i2] = a2;
 		steps ++;
 		if (isVerbose) {
@@ -159,7 +163,7 @@ public class Trainer {
 			for (int i = startPos; 
 				count < inputSize; 
 				count++, i = (i + 1) % inputSize) {
-				if (alpha[i] <= 0 || alpha[i] >= C)
+				if (alpha[i] <= epsilon || alpha[i] >= C - epsilon)
 					continue;
 				if (takeStep(i1, i))
 					return 1;
@@ -192,7 +196,7 @@ public class Trainer {
 					numChanged += examine(i);
 			} else {
 				for (int i = 0; i < inputSize; i++) {
-					if (alpha[i] > 0 && alpha[i] < C)
+					if (alpha[i] > epsilon && alpha[i] < C - epsilon)
 						numChanged += examine(i);
 				}
 			}
@@ -204,22 +208,26 @@ public class Trainer {
 		}
 		//count the num of support vector
 		int count = 0;
+		int bCount = 0;
 		for (int i = 0; i < inputSize; i++) {
-			if (alpha[i] > 0)
+			if (alpha[i] > epsilon)
 				count ++;
+			if (alpha[i] >= C - epsilon)
+				bCount ++;
 		}
 		double[] alphaRet = new double[count];
 		DataPoint[] sv = new DataPoint[count];
 		int j = 0;
 		for (int i = 0; i < inputSize; i++) {
-			if (alpha[i] > 0) {
+			if (alpha[i] > epsilon) {
 				alphaRet[j] = alpha[i];
 				sv[j] = input.get(i);
 				j++;
 			}
 		}
 		
-		System.out.println("nSV: " + count);
+		System.out.println("iter#: " + steps);
+		System.out.println("nSV: " + count + " nBSV: " + bCount);
 				
 		return new Classifier(k, alphaRet, sv, b);
 	}
