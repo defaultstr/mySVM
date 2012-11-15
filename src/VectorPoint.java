@@ -12,4 +12,12 @@ public class VectorPoint extends DataPoint{
 		this.x = x;
 		this.y = y;
 	}
+	@Override
+	public String outputString() {
+		String ret = "x:[";
+		for (int i = 0; i < x.length; i++)
+			ret += x[i] +" ";
+		ret += "] y:" + y;
+		return ret;
+	}
 }

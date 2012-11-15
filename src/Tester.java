@@ -17,6 +17,16 @@ public class Tester {
 		}
 		return 1.0 * rightCount / p.length;
 	}
+	
+	public static double test(Classifier c, InputData id) {
+		int rightCount = 0;
+		for (int i = 0; i < id.size(); i++) {
+			if (c.classify(id.get(i)) == id.get(i).y)
+				rightCount ++;
+		}
+		return 1.0 * rightCount / id.size();
+	}
+	
 	public static double crossValidation(DataPoint[] p,
 										Kernel k,
 										double C,

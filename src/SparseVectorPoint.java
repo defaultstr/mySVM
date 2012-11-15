@@ -26,4 +26,9 @@ public class SparseVectorPoint extends DataPoint {
 			}
 		}
 	}
+	@Override
+	public String outputString() {
+		//TODO
+		return null;
+	}
 }

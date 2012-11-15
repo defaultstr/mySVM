@@ -5,9 +5,9 @@
  */
 public class Classifier {
 	private Kernel k;
-	private double[] alpha;
-	private DataPoint[] sv;
-	private double b;
+	public double[] alpha;
+	public DataPoint[] sv;
+	public double b;
 	/**
 	 * classification function
 	 * @param k kernel function
@@ -37,7 +37,8 @@ public class Classifier {
 			}
 		} catch (DataPointTypeMismatchException e) {
 			e.printStackTrace();
-		}	
+		}
+		f += b;
 		if (f >= 0)
 			return 1;
 		else

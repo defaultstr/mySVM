@@ -1,10 +1,13 @@
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
 
 public class Trainer {
+	private int steps;
 	private double C;
 	private double epsilon;
 	private Kernel k;
@@ -12,13 +15,14 @@ public class Trainer {
 	private InputData input = null;//TODO support multi-data source 
 	private int inputSize;
 	private double[] alpha;
-	private TreeSet<Integer> a0;
-	private TreeSet<Integer> ac;
-	private TreeSet<Integer> a0_c;
+	private double[] E;
 	private double b;
+	private Random rand = new Random();
+
 
 	
 	public Trainer() {
+		steps = 0;
 		C = 1.0;
 		epsilon = 0.001;
 		k = new RBFKernel(1.0);
@@ -29,6 +33,7 @@ public class Trainer {
 			Kernel k, 
 			boolean isVerbose,
 			InputData input) {
+		steps = 0;
 		this.C = C;
 		this.epsilon = epsilon;
 		this.k = k;
@@ -37,17 +42,192 @@ public class Trainer {
 		inputSize = input.size();
 	}
 	
+	
+	private boolean takeStep(int i1, int i2) throws DataPointTypeMismatchException{
+		if (i1 == i2)
+			return false;
+		DataPoint p1 = input.get(i1);
+		DataPoint p2 = input.get(i2);
+		double alpha1 = alpha[i1];
+		double alpha2 = alpha[i2];
+		//new a1, a2
+		double a1, a2;
+		int y1 = p1.y;
+		int y2 = p2.y;
+		double E1 = E[i1];
+		double E2 = E[i2];
+		int s = y1 * y2;
+		double L = 0, H = 0;
+		if (y1 != y2) {
+			L = Math.max(0,  alpha2 - alpha1);
+			H = Math.min(C, C + alpha2 - alpha1);
+		} else {
+			L = Math.max(0, alpha2 + alpha1 -C);
+			H = Math.min(C, alpha2 + alpha1);
+		}
+		if (L == H)
+			return false;
+		double k11 = k.k(p1, p1);
+		double k12 = k.k(p1, p2);
+		double k22 = k.k(p2, p2);
+		double eta = 2*k12 - k11 - k22;
+		if (eta < 0) {
+			a2 = alpha2 - y2 * (E1 - E2) / eta;
+			if (a2 <  L) a2 = L;
+			else if (a2 > H) a2 = H;
+		} else {
+			double param1 = 0;
+			double param2 = 0;
+			for (int i = 0; i < inputSize; i++) {
+				if (i == i1 || i == i2)
+					continue;
+				param1 += input.get(i).y * alpha[i] * k.k(input.get(i), p1);
+				param2 += input.get(i).y * alpha[i] * k.k(input.get(i), p2);
+			}
+			//if a2 = L
+			a2 = L;
+			a1 = alpha1 + s * (alpha2 - a2);
+			double Lobj = 0.5 * k11 * a1 * a1
+					     +0.5 * k22 * a2 * a2
+						 +s * k12 * a1 * a2
+						 -a1 - a2
+						 +y1 * a1 * param1
+						 +y2 * a2 * param2;
+			//if a2 = H
+			a2 = H;
+			a1 = alpha1 + s * (alpha2 - a2);
+			double Hobj = 0.5 * k11 * a1 * a1
+					     +0.5 * k22 * a2 * a2
+						 +s * k12 * a1 * a2
+						 -a1 - a2
+						 +y1 * a1 * param1
+						 +y2 * a2 * param2;
+			if (Lobj < Hobj - epsilon) {
+				a2 = L;
+			} else if (Lobj > Hobj + epsilon){
+				a2 = H;
+			} else {
+				a2 = alpha2;
+			}
+		}
+		if (Math.abs(a2 - alpha2) < epsilon * (a2 + alpha2 + epsilon))
+			return false;
+		a1 = alpha1 + s * (alpha2 - a2);
+		//update b
+		double b1New = -E[i1]-y1*k.k(p1, p1)*(a1 - alpha1)
+				   -y2*k.k(p2, p1)*(a2 - alpha2) + b;
+		double b2New = -E[i2]-y1*k.k(p1, p2)*(a1 - alpha1)
+					   -y2*k.k(p2, p2)*(a2 - alpha2) + b;
+		double bError = (b1New + b2New) / 2 - b;
+		b = (b1New + b2New) / 2;
+		//update E
+		for (int i = 0; i < inputSize; i++) {
+			E[i] = E[i] + y1*(a1 - alpha1)*k.k(p1, input.get(i))
+				  +y2*(a2 - alpha2)*k.k(p2, input.get(i)) + bError;
+		}
+		alpha[i1] = a1;
+		alpha[i2] = a2;
+		steps ++;
+		if (isVerbose) {
+			System.out.println("step: " + steps);
+			System.out.print("alpha: ");
+			for (int i = 0; i < inputSize; i++)
+				System.out.print(alpha[i] + " ");
+			System.out.println();
+		}
+		return true;
+	}
+	
+	private int examine(int i1) throws DataPointTypeMismatchException {
+		DataPoint p1 = input.get(i1);
+		double alpha1 = alpha[i1];
+		double E1 = E[i1];
+		double r1 = E1 * p1.y;
+		if ((r1 < -epsilon && alpha1 < C) || (r1 > epsilon && alpha1 > 0)) {
+			int i2 = -1;
+			double maxError = 0;
+			for (int i = 0; i < inputSize; i++) {
+				if (Math.abs(E1 - E[i]) > maxError) {
+					i2 = i;
+					maxError = Math.abs(E1 - E[i]);
+				}
+			}
+			if (takeStep(i1, i2))
+				return 1;
+			int startPos = rand.nextInt(inputSize);
+			int count = 0;
+			for (int i = startPos; 
+				count < inputSize; 
+				count++, i = (i + 1) % inputSize) {
+				if (alpha[i] <= 0 || alpha[i] >= C)
+					continue;
+				if (takeStep(i1, i))
+					return 1;
+			}
+			startPos = rand.nextInt(inputSize);
+			for (int i = startPos; 
+					count < inputSize; 
+					count++, i = (i + 1) % inputSize) {
+					if (takeStep(i1, i))
+						return 1;
+			}
+		}
+		return 0;
+	}
+	
+	public Classifier train() throws DataPointTypeMismatchException {
+		alpha = new double[inputSize];
+		b = 0;
+		//compute E
+		E = new double[inputSize];
+		for (int i = 0; i < inputSize;i ++) {
+			E[i] = getG(input.get(i)) - input.get(i).y;
+		}
+		int numChanged = 0;
+		boolean examineAll = true;
+		while (numChanged > 0 || examineAll) {
+			numChanged = 0; 
+			if (examineAll) {
+				for (int i = 0; i < inputSize; i++)
+					numChanged += examine(i);
+			} else {
+				for (int i = 0; i < inputSize; i++) {
+					if (alpha[i] > 0 && alpha[i] < C)
+						numChanged += examine(i);
+				}
+			}
+			if (examineAll)
+				examineAll = false;
+			else if (numChanged == 0) {
+				examineAll = true;
+			}
+		}
+		//count the num of support vector
+		int count = 0;
+		for (int i = 0; i < inputSize; i++) {
+			if (alpha[i] > 0)
+				count ++;
+		}
+		double[] alphaRet = new double[count];
+		DataPoint[] sv = new DataPoint[count];
+		int j = 0;
+		for (int i = 0; i < inputSize; i++) {
+			if (alpha[i] > 0) {
+				alphaRet[j] = alpha[i];
+				sv[j] = input.get(i);
+				j++;
+			}
+		}
+		
+		System.out.println("nSV: " + count);
+				
+		return new Classifier(k, alphaRet, sv, b);
+	}
+	/*
 	public boolean iterate() throws DataPointTypeMismatchException {
 		if (alpha == null) {
 			alpha = new double[inputSize];
 			b = 0.0;
-			a0 = new TreeSet<Integer>();
-			ac = new TreeSet<Integer>();
-			a0_c = new TreeSet<Integer>();
-			//set all alpha to 0, so all of them are in set a0
-			for (int i = 0; i < inputSize; i++) {
-				a0.add(i);
-			}
 		}
 		
 		//choose a_1
@@ -55,46 +235,51 @@ public class Trainer {
 		while (true) {
 			int a1 = chooseA1(a1Mark);
 			if (a1 == -1) {
-				break;
+				return false;
 			}
 			a1Mark.add(a1);
 			//choose a_2
-			int a2 = chooseA2();
+			int a2 = chooseA2(a1);
 			if (a2 != -1) {
 				//update alpha
 				double L = 0;
 				double H = 0;
-				if (input.get(a1).y == input.get(a2).y) {
-					L = Math.max(0,  alpha[a2] - alpha[a1]);
-					H = Math.min(C, C + alpha[a2] - alpha[a1]);
-				} else {
-					L = Math.max(0, alpha[a2] + alpha[a1] -C);
-					H = Math.min(C, alpha[a2] + alpha[a1]);
-				}
-				double ita = k.k(input.get(a1), input.get(a1))
-							+k.k(input.get(a2), input.get(a2))
-							-2 * k.k(input.get(a2), input.get(a1));
-				double a2New = alpha[a2] + input.get(a2).y
-						*(getE(a1)-getE(a2)) / ita;
+				int y1 = input.get(a1).y;
+				int y2 = input.get(a2).y;
+				DataPoint p1 = input.get(a1);
+				DataPoint p2 = input.get(a2);	
+				
+				double ita = k.k(p1, p1)
+							+k.k(p2, p2)
+							-2 * k.k(p1, p2);
+				double a2New = alpha[a2] + y2*(getE(a1)-getE(a2)) / ita;
 				if (a2New > H)
 					a2New = H;
 				else if (a2New < L)
 					a2New = L;
-				double a1New = alpha[a1]+input.get(a1).y*input.get(a2).y*(alpha[a2]-a2New);
+				double a1New = alpha[a1]+y1*y2*(alpha[a2]-a2New);
 				
-				double b1New = -getE(a1)-input
+				//double b1New = -getE(a1)-y1*k.k(p1, p1)*(a1New - alpha[a1])
+							   -y2*k.k(p2, p1)*(a2New - alpha[a2]) + b;
+				//double b2New = -getE(a2)-y1*k.k(p1, p2)*(a1New - alpha[a1])
+							   -y2*k.k(p2, p2)*(a2New - alpha[a2]) + b;
+				//b = (b1New + b2New) / 2;
 			}
 		}
 			
 				
 		return true;	
 		
-	}
+	}*/
 	
+	
+
 	private int chooseA1(Set<Integer> mark) throws DataPointTypeMismatchException {
 		int a1 = -1;
 		double maxError = 0.0;
-		for (Integer i : a0_c) {
+		for (int i = 0; i < inputSize; i ++) {
+			if (alpha[i] <= 0 - epsilon || alpha[i] >= C + epsilon)
+				continue;
 			if (mark.contains(i))
 				continue;
 			double g = getG(input.get(i));
@@ -108,7 +293,9 @@ public class Trainer {
 		
 		if (a1 == -1) {
 			maxError = 0.0;
-			for (Integer i : a0) {
+			for (int i = 0; i < inputSize; i ++) {
+				if (!equals(alpha[i], 0))
+					continue;
 				if (mark.contains(i))
 					continue;
 				double g = getG(input.get(i));
@@ -119,7 +306,9 @@ public class Trainer {
 					}
 				}
 			}
-			for (Integer i : ac) {
+			for (int i = 0; i < inputSize; i ++) {
+				if (!equals(alpha[i], C))
+					continue;
 				if (mark.contains(i))
 					continue;
 				double g = getG(input.get(i));
