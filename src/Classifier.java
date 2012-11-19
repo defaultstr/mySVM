@@ -1,3 +1,10 @@
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+
 /**
  * Represent the classification function
  * @author defaultstr
@@ -53,5 +60,17 @@ public class Classifier {
 		for (DataPoint dp : p) {
 			dp.y = classify(dp);
 		}
+	}
+	public void output2DSupportVector(String filename) throws IOException {
+		// for matlab
+		File fout = new File(filename);
+		Writer w = new OutputStreamWriter(new FileOutputStream(fout));
+		w.write(b + "\n");
+		SparseVectorPoint vp;
+		for (int i = 0; i < sv.length; i++) {
+			vp = (SparseVectorPoint)sv[i];
+			w.write(sv[i].y + " " + alpha[i] + " " + vp.val[0] + " " + vp.val[1] + "\n");
+		}
+		w.close();
 	}
 }

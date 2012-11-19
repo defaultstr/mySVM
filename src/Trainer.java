@@ -149,14 +149,14 @@ public class Trainer {
 		double r1 = E1 * p1.y;
 		if ((r1 < -epsilon && alpha1 < C) || (r1 > epsilon && alpha1 > 0)) {
 			int i2 = -1;
-			double maxError = 0;
+			double maxError = epsilon;
 			for (int i = 0; i < inputSize; i++) {
 				if (Math.abs(E1 - E[i]) > maxError) {
 					i2 = i;
 					maxError = Math.abs(E1 - E[i]);
 				}
 			}
-			if (takeStep(i1, i2))
+			if (i2 != -1 && takeStep(i1, i2))
 				return 1;
 			int startPos = rand.nextInt(inputSize);
 			int count = 0;
@@ -180,6 +180,7 @@ public class Trainer {
 	}
 	
 	public Classifier train() throws DataPointTypeMismatchException {
+		long time = System.currentTimeMillis();
 		alpha = new double[inputSize];
 		b = 0;
 		//compute E
@@ -228,6 +229,7 @@ public class Trainer {
 		
 		System.out.println("iter#: " + steps);
 		System.out.println("nSV: " + count + " nBSV: " + bCount);
+		System.out.println("time: " + (System.currentTimeMillis() - time) / 1000.0 + " s" );
 				
 		return new Classifier(k, alphaRet, sv, b);
 	}

@@ -22,10 +22,12 @@ public class Main {
 		/* support libSVM format*/
 
 		try {
-			LibSVMData lsd = new LibSVMData("gns.head");
-			LibSVMData testSet = new LibSVMData("gns.test", lsd.getTags());
-			Trainer t = new Trainer(16, 0.01, new LinearKernel(), false, lsd);
+			LibSVMData lsd = new LibSVMData("gauss30.1");
+			LibSVMData testSet = new LibSVMData("gauss200", lsd.getTags());
+			Trainer t = new Trainer(4, 0.001, new RBFKernel(100), false, lsd);
 			Classifier c = t.train();
+			c.output2DSupportVector("gauss30rbf1.sv");
+			System.out.println(c.b);
 			System.out.println("acc: " + Tester.test(c, testSet));
 		} catch (IOException e) {
 			e.printStackTrace();

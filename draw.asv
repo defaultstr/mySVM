@@ -1,0 +1,20 @@
+function draw(pos, neg, svFilename, b, num)
+%DRAW Summary of this function goes here
+%   Detailed explanation goes here
+fin = fopen(svFilename,'r');
+yi = zeros(num,1);
+alpha = zeros(num,1);
+sv = zeros(num,2);
+for i = 1:num
+    y(i) = fscanf(fin, '%d');
+    alpha(i) = fscanf(fin, '%f');
+    sv(i,1) = fscanf(fin, '%f');
+    sv(i,2) = fscanf(fin, '%f');
+    
+    plot(pos(:,1), pos(:,2), '+');hold on;
+    plot(neg(:,1), neg(:,2), '+');hold on;
+    f = @(x1,y1,x2,y2) x1*x2 + y1*y2;
+    ezplot(@(x,y)classify(x,y,f,sv,a,y
+
+end
+
